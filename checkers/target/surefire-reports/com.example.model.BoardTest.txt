@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
-Test set: com.example.game.GameTest
+Test set: com.example.model.BoardTest
 -------------------------------------------------------------------------------
-Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.034 s -- in com.example.game.GameTest
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.156 s -- in com.example.model.BoardTest

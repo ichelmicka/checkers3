@@ -69,6 +69,7 @@ public final class Board implements Cloneable {
             if (neighbour != Stone.EMPTY && isSurrounded(nx, ny))
             {
                 set(nx, ny, Stone.EMPTY);
+                captures.add(new Position(nx, ny));
             }
         }
         return MoveResult.ok(captures, this.clone());
