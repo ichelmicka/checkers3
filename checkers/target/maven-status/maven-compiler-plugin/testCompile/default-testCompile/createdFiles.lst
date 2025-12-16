@@ -1,4 +1,6 @@
 com/example/game/GameTest.class
+com/example/model/PlayerTest.class
 com/example/model/BoardTest.class
 com/example/model/MoveTest.class
+com/example/server/ClientHandlerTest.class
 com/example/model/MoveResultTest.class

@@ -30,6 +30,11 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    public void setOut(PrintWriter out) {
+    this.out = out;
+    }
+
+
     @Override
     public void run() {
         try {
