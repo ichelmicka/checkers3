@@ -84,8 +84,8 @@ public class Server implements GameListener {
             return;
         }
         MoveResult res = game.applyMove(m);
-        if (!res.ok) {
-            origin.send("ERROR " + res.message);
+        if (!res.isOk()) {
+            origin.send("ERROR " + res.getErrorMessage());
         } // jeśli sukces, ruchy są wysyłane do clients przez onMoveApplied() (observer)
     }
 
@@ -94,10 +94,10 @@ public class Server implements GameListener {
     public void onMoveApplied(Move move, MoveResult result, Board snapshotBoard) {
         // broadcast info
         broadcast("MOVE " + move.playerId + " " + (move.pos.x) + " " + (move.pos.y));
-        if (result.captures != null && !result.captures.isEmpty()) {
-            broadcast("CAPTURE " + result.captures.size());
+        if (result.getCaptures() != null && !result.getCaptures().isEmpty()) {
+            broadcast("CAPTURE " + result.getCaptures().size());
         }
-        broadcast("BOARD\n" + snapshotBoard.toSimpleString());
+        broadcast("BOARD\n" + snapshotBoard.toString());
         broadcast("INFO Next turn: " + game.getCurrentTurn());
     }
 
@@ -106,7 +106,7 @@ public class Server implements GameListener {
     }
 
     public void broadcastBoard() {
-        broadcast("BOARD\n" + game.getBoard().toSimpleString());
+        broadcast("BOARD\n" + game.getBoard().toString());
     }
 
     public static void main(String[] args) throws Exception {
