@@ -7,7 +7,7 @@ import java.util.*;
 
 public class Game {
     private Board board;
-    private Map<Stone, Player> players;
+    private Map<String, Player> players = new HashMap<>();
     private Stone currentTurn;
     private GameState state;
 
@@ -32,7 +32,7 @@ public class Game {
 
     public boolean join(Player p) {
     if (players.size() >= 2) return false;
-    players.put(p.getColor(), p);
+    players.put(p.getId(), p);
     if (players.size() == 2) start();
     return true;
     }
@@ -52,7 +52,7 @@ public class Game {
     }
 
     public MoveResult applyMove(Move move) {
-        Player current = players.get(currentTurn); //wez gracza, ktory gra kolorem podanym w ruchu
+        Player current = players.get(move.getPlayerId()); //wez gracza, ktory gra kolorem podanym w ruchu
         if (state != GameState.RUNNING) return MoveResult.error("Game not running");
         if (current.getColor() != currentTurn) return MoveResult.error("Not your turn");
 
