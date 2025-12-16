@@ -2,9 +2,9 @@ package com.example.server;
 
 import com.example.model.Player;
 import com.example.model.PlayerFactory;
-import com.example.model.Stone;
 import com.example.model.Move;
 import com.example.model.Board;
+import com.example.model.GameState;
 import com.example.model.MoveResult;
 import com.example.game.Game;
 import com.example.game.GameListener;
@@ -78,15 +78,35 @@ public class Server implements GameListener {
      * Handle move string from a client ("MOVE x y").
      */
     public void handleRawMove(String raw, ClientHandler origin) {
-        Move m = Move.parse(raw, origin.getPlayer().getId());
-        if (m == null) {
-            origin.send("ERROR bad command. Use: MOVE <x> <y>");
+        Player originPlayer = origin.getPlayer();
+        if (originPlayer == null) {
+            origin.send("ERROR You are not registered (no JOIN received)");
             return;
         }
-        MoveResult res = game.applyMove(m);
-        if (!res.isOk()) {
-            origin.send("ERROR " + res.getErrorMessage());
-        } // jeśli sukces, ruchy są wysyłane do clients przez onMoveApplied() (observer)
+
+        synchronized (game) {
+            if (game.getState() != GameState.RUNNING) {
+                origin.send("ERROR Game not running");
+                return;
+            }
+            if (originPlayer.getColor() != game.getCurrentTurn()) {
+                origin.send("ERROR Not your turn");
+                return;
+            }
+
+            // parse move
+            Move m = Move.parse(raw, originPlayer.getId());
+            if (m == null) {
+                origin.send("ERROR bad command. Use: MOVE <x> <y>");
+                return;
+            }
+
+            // delegate to game
+            MoveResult res = game.applyMove(m);
+            if (!res.isOk()) {
+                origin.send("ERROR " + res.getErrorMessage());
+            } // jeśli sukces, ruchy są wysyłane do clients przez onMoveApplied() (observer)
+        }
     }
 
     // GameListener implementation — wywoływane po poprawnym ruchu

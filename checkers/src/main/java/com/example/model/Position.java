@@ -1,5 +1,7 @@
 package com.example.model;
 
+import java.util.Objects;
+
 public class Position {
     public final int x;
     public final int y;
@@ -15,6 +17,10 @@ public class Position {
         return p.x == x && p.y == y;
     }
 
+    public int hashCode() {
+        return Objects.hash(x, y);
+    }
+    
     public int getX() {
         return x;
     }

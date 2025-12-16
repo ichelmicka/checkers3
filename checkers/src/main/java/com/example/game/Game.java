@@ -37,7 +37,6 @@ public class Game {
     return true;
     }
 
-
     public Board getBoard() {
          return board; 
     }
@@ -53,7 +52,7 @@ public class Game {
     }
 
     public MoveResult applyMove(Move move) {
-        Player current = players.get(move.getPlayerId()); //wez gracza, ktory gra kolorem podanym w ruchu
+        Player current = players.get(currentTurn); //wez gracza, ktory gra kolorem podanym w ruchu
         if (state != GameState.RUNNING) return MoveResult.error("Game not running");
         if (current.getColor() != currentTurn) return MoveResult.error("Not your turn");
 
@@ -81,6 +80,10 @@ public class Game {
 
     public String serializeState() {
         return board.toString();
+    }
+
+    public GameState getState(){
+        return state;
     }
 
 }
