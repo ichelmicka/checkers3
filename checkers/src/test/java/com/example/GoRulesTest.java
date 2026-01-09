@@ -27,18 +27,15 @@ public class GoRulesTest {
         Rules rules = new GoRules();
         // ustawiamy białego kamienia
         b.set(1, 1, Stone.WHITE);
-        System.out.println(b);
 
         // otaczamy go czarnymi z trzech stron
         b.set(0, 1, Stone.BLACK);
         b.set(2, 1, Stone.BLACK);
         b.set(1, 0, Stone.BLACK);
-        System.out.println(b);
 
         // ostatni ruch czarnego zamyka oddechy białego
         //MoveResult r = b.placeStone(1, 2, Stone.BLACK);
         MoveResult r = rules.applyMove(b, 1, 2, Stone.BLACK);
-        System.out.println(b);
 
 
         assertTrue(r.isOk(), "Ruch powinien być poprawny");
@@ -48,4 +45,73 @@ public class GoRulesTest {
         Board after = r.getBoardSnapshot();
         assertEquals(Stone.EMPTY, after.get(1, 1));
     }
+
+    //samobojstwo, ktore zbija piony przeciwnika
+    @Test
+    void suicideThatCapturesIsLegal() {
+        Board b = new Board(3);
+        Rules rules = new GoRules();
+
+        // białe w środku
+        b.set(1, 1, Stone.WHITE);
+
+        // czarne otaczają, ale mają 1 oddech
+        b.set(0, 1, Stone.BLACK);
+        b.set(2, 1, Stone.BLACK);
+        b.set(1, 0, Stone.BLACK);
+
+        // czarne grają samobójstwo, ale biją białego
+        MoveResult r = rules.applyMove(b, 1, 2, Stone.BLACK);
+
+        assertTrue(r.isOk());
+        assertEquals(1, r.getCaptures().size());
+
+        Board after = r.getBoardSnapshot();
+        assertEquals(Stone.EMPTY, after.get(1, 1));
+    }
+
+
+    @Test
+    void suicideMoveShouldFail() {
+        Board b = new Board(3);
+        Rules rules = new GoRules();
+
+        // otaczamy punkt (1,1)
+        b.set(0, 1, Stone.BLACK);
+        b.set(2, 1, Stone.BLACK);
+        b.set(1, 0, Stone.BLACK);
+        b.set(1, 2, Stone.BLACK);
+
+        MoveResult r = rules.applyMove(b, 1, 1, Stone.WHITE);
+
+        assertFalse(r.isOk());
+        assertEquals("Samobojstwo", r.getErrorMessage());
+    }
+
+    @Test
+    void capturingLargerGroupShouldWork() {
+        Board b = new Board(5);
+        Rules rules = new GoRules();
+
+        // grupa 2 białych
+        b.set(2, 2, Stone.WHITE);
+        b.set(2, 3, Stone.WHITE);
+
+        // czarne otaczają
+        b.set(1, 2, Stone.BLACK);
+        b.set(3, 2, Stone.BLACK);
+        b.set(1, 3, Stone.BLACK);
+        b.set(3, 3, Stone.BLACK);
+        b.set(2, 1, Stone.BLACK);
+
+        MoveResult r = rules.applyMove(b, 2, 4, Stone.BLACK);
+        System.out.println(b);
+        assertEquals(2, r.getCaptures().size());
+
+        Board after = r.getBoardSnapshot();
+        assertEquals(Stone.EMPTY, after.get(2, 2));
+        assertEquals(Stone.EMPTY, after.get(2, 3));
+    }
+
+
 }
