@@ -7,6 +7,8 @@ import java.util.List;
 
 public class GoRules implements Rules {
 
+    private final KoDetector koDetector = new KoDetector(); 
+
     @Override
     public MoveResult applyMove(Board board, int x, int y, Stone color) {
 
@@ -47,7 +49,14 @@ public class GoRules implements Rules {
             return MoveResult.error("Samobojstwo");
         }
 
+        // sprawdzenie reguły ko
+        String hashAfter = copy.toString();
+        if (koDetector.isKo(hashAfter)) {
+            return MoveResult.error("Ko - niedozwolone powtórzenie pozycji");
+        }
 
+        // dodanie do historii
+        koDetector.push(board.toString());
 
         //zwróć wynik
         return MoveResult.ok(captures, copy);
