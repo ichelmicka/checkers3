@@ -4,7 +4,6 @@ import com.example.model.Board;
 import com.example.model.MoveResult;
 import com.example.model.Position;
 import com.example.model.Stone;
-import com.example.rules.GoRules;
 
 import javax.swing.*;
 import java.awt.*;
@@ -20,115 +19,116 @@ import java.util.List;
  * - licznik terytorium.
  */
 public class MainGui {
-    /** Rozmiar planszy. */
-    private final int boardSize = 9;
-    /** Model planszy przechowujący stan gry. */
-    private Board board;
-    /** Reguły gry. */
-    private final GoRules rules = new GoRules();
-    /** Aktualny gracz (czarny zaczyna). */
-    private Stone currentPlayer = Stone.BLACK;
 
-    private final int cellSize = 48; // piksele
-    private final int margin = 20;
+    private final int boardSize = 19;
+    private Board board = new Board(boardSize);
+    private Stone myColor = Stone.EMPTY;
+    private Stone currentTurn = Stone.BLACK;
 
     private JFrame frame;
     private BoardPanel boardPanel;
     private JLabel statusLabel;
 
-    /**
-     * Punkt wejścia uruchamiający GUI.
-     * @param args
-     */
+    private GoClient client;
+
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new MainGui().createAndShowGui());
+        SwingUtilities.invokeLater(() -> new MainGui().start());
     }
 
-    /** Konstruktor inicjalizujący nowa, pustą planszę. */
-    public MainGui() {
-        board = new Board(boardSize);
+    public void start() {
+        connectToServer();
+        createGui();
     }
 
-    /** Tworzy i wyświetla okno aplikacji. */
-    private void createAndShowGui() {
-        frame = new JFrame("Go / Checkers GUI");
+    private void connectToServer() {
+        client = new GoClient(
+                "localhost",
+                8888,
+                this::onServerMessage,
+                this::onServerError
+        );
+
+        client.send("JOIN Player1");
+    }
+
+    private void createGui() {
+        frame = new JFrame("Go Client");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
 
         boardPanel = new BoardPanel();
-        boardPanel.setPreferredSize(new Dimension(boardSize * cellSize + margin * 2, boardSize * cellSize + margin * 2));
+        boardPanel.setPreferredSize(new Dimension(800, 800));
 
-        JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton passBtn = new JButton("Pass");
-        JButton scoreBtn = new JButton("Score");
-        JButton resetBtn = new JButton("Reset");
+        statusLabel = new JLabel("Connecting...");
 
-        passBtn.addActionListener(e -> pass());
-        scoreBtn.addActionListener(e -> showScore());
-        resetBtn.addActionListener(e -> resetBoard());
-
-        top.add(new JLabel("Player:"));
-        statusLabel = new JLabel(currentPlayer == Stone.BLACK ? "BLACK" : "WHITE");
+        JPanel top = new JPanel();
         top.add(statusLabel);
-        top.add(passBtn);
-        top.add(scoreBtn);
-        top.add(resetBtn);
 
         frame.add(top, BorderLayout.NORTH);
         frame.add(boardPanel, BorderLayout.CENTER);
 
         frame.pack();
-        frame.setLocationRelativeTo(null);
         frame.setVisible(true);
     }
 
-    /** Wykonuje akcję "pass". */
-    private void pass() {
-        currentPlayer = (currentPlayer == Stone.BLACK) ? Stone.WHITE : Stone.BLACK;
-        statusLabel.setText(currentPlayer == Stone.BLACK ? "BLACK" : "WHITE");
+    //obsluga wiadomosci z serwera
+
+    private void onServerMessage(String msg) {
+        System.out.println("SERVER: " + msg);
+
+        if (msg.startsWith("ASSIGN")) {
+            // ASSIGN <playerId> <color>
+            String[] p = msg.split(" ");
+            myColor = Stone.valueOf(p[2]);
+            SwingUtilities.invokeLater(() -> statusLabel.setText("You are: " + myColor));
+        }
+
+        else if (msg.startsWith("INFO")) {
+            SwingUtilities.invokeLater(() -> statusLabel.setText(msg.substring(5)));
+        }
+
+        else if (msg.startsWith("ERROR")) {
+            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, msg, "Error", JOptionPane.ERROR_MESSAGE));
+        }
+
+        else if (msg.startsWith("BOARD")) {
+            // następne linie to tekst planszy
+            readBoardFromServer();
+        }
     }
 
-    /** Resetuje planszę do stanu początkowego i ustawia gracza czarnego jako rozpoczynającego. */
-    private void resetBoard() {
-        board = new Board(boardSize);
-        currentPlayer = Stone.BLACK;
-        statusLabel.setText("BLACK");
-        boardPanel.repaint();
+    private void readBoardFromServer() {
+        try {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < boardSize; i++) {
+                sb.append(client.getReader().readLine()).append("\n");
+            }
+            board = Board.fromString(sb.toString());
+            SwingUtilities.invokeLater(boardPanel::repaint);
+        } catch (Exception e) {
+            onServerError("Failed to read board: " + e.getMessage());
+        }
     }
 
-    /** Pokazuje okienko z wynikiem. */
-    private void showScore() {
-        TerritoryScorerLocal.Score s = TerritoryScorerLocal.score(board);
-        String msg = String.format("Black: stones=%d territory=%d total=%d\nWhite: stones=%d territory=%d total=%d",
-                s.blackStones, s.blackTerritory, s.blackScore,
-                s.whiteStones, s.whiteTerritory, s.whiteScore);
-        JOptionPane.showMessageDialog(frame, msg, "Score", JOptionPane.INFORMATION_MESSAGE);
+    private void onServerError(String msg) {
+        SwingUtilities.invokeLater(() ->
+                JOptionPane.showMessageDialog(frame, msg, "Connection error", JOptionPane.ERROR_MESSAGE));
     }
 
-    /** 
-     * Panel rysujący planszę.
-     * Kliknięcie próbuje wykonać ruch przy użyciu reguł {@link GoRules}.
-     */
+    //panel rysujacy plansze
+
     private class BoardPanel extends JPanel {
         public BoardPanel() {
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
-                    int x = (e.getX() - margin) / cellSize;
-                    int y = (e.getY() - margin) / cellSize;
-                    if (x < 0 || x >= boardSize || y < 0 || y >= boardSize) return;
+                    if (myColor == Stone.EMPTY) return;
 
-                    MoveResult mr = rules.applyMove(board, x, y, currentPlayer);
-                    if (!mr.isOk()) {
-                        JOptionPane.showMessageDialog(frame, mr.getErrorMessage(), "Invalid move", JOptionPane.WARNING_MESSAGE);
-                        return;
-                    }
+                    int cellSize = getWidth() / boardSize;
+                    int x = e.getX() / cellSize;
+                    int y = e.getY() / cellSize;
 
-                    // update board to snapshot returned by rules
-                    board = mr.getBoardSnapshot();
-                    currentPlayer = (currentPlayer == Stone.BLACK) ? Stone.WHITE : Stone.BLACK;
-                    statusLabel.setText(currentPlayer == Stone.BLACK ? "BLACK" : "WHITE");
-                    repaint();
+                    client.send("MOVE " + x + " " + y);
                 }
             });
         }
@@ -136,42 +136,41 @@ public class MainGui {
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
-            Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            // background
-            g2.setColor(new Color(245, 222, 179)); // light wood
-            g2.fillRect(0, 0, getWidth(), getHeight());
+            int cell = getWidth() / boardSize;
 
-            // grid
-            g2.setColor(Color.BLACK);
+            g.setColor(new Color(240, 200, 120));
+            g.fillRect(0, 0, getWidth(), getHeight());
+
+            g.setColor(Color.BLACK);
             for (int i = 0; i < boardSize; i++) {
-                int xi = margin + i * cellSize + cellSize / 2;
-                int yi = margin + i * cellSize + cellSize / 2;
-                g2.drawLine(margin + cellSize/2, yi, margin + (boardSize-1) * cellSize + cellSize/2, yi);
-                g2.drawLine(xi, margin + cellSize/2, xi, margin + (boardSize-1) * cellSize + cellSize/2);
+                g.drawLine(cell / 2, cell / 2 + i * cell, cell / 2 + (boardSize - 1) * cell, cell / 2 + i * cell);
+                g.drawLine(cell / 2 + i * cell, cell / 2, cell / 2 + i * cell, cell / 2 + (boardSize - 1) * cell);
             }
-            // stones
+
             for (int y = 0; y < boardSize; y++) {
                 for (int x = 0; x < boardSize; x++) {
                     Stone s = board.get(x, y);
                     if (s == Stone.EMPTY) continue;
-                    int cx = margin + x * cellSize + cellSize/2;
-                    int cy = margin + y * cellSize + cellSize/2;
-                    int r = cellSize/2 - 6;
+
+                    int cx = cell / 2 + x * cell;
+                    int cy = cell / 2 + y * cell;
+                    int r = cell / 2 - 4;
+
                     if (s == Stone.BLACK) {
-                        g2.setColor(Color.BLACK);
-                        g2.fillOval(cx - r, cy - r, r * 2, r * 2);
-                    } else if (s == Stone.WHITE) {
-                        g2.setColor(Color.WHITE);
-                        g2.fillOval(cx - r, cy - r, r * 2, r * 2);
-                        g2.setColor(Color.BLACK);
-                        g2.drawOval(cx - r, cy - r, r * 2, r * 2);
+                        g.setColor(Color.BLACK);
+                        g.fillOval(cx - r, cy - r, r * 2, r * 2);
+                    } else {
+                        g.setColor(Color.WHITE);
+                        g.fillOval(cx - r, cy - r, r * 2, r * 2);
+                        g.setColor(Color.BLACK);
+                        g.drawOval(cx - r, cy - r, r * 2, r * 2);
                     }
                 }
             }
         }
     }
+
 
     /**
      * Lokalny scorer.

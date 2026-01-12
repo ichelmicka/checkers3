@@ -40,57 +40,6 @@ public final class Board implements Cloneable {
         return list;
     }
 
-    //jesli sasiad jest otoczony usuwamy go
-    /*public MoveResult placeStone(int x, int y, Stone color)
-    {
-        if (!isOnBoard(x, y)) {
-            return MoveResult.error("Poza plansza");
-        }
-        if (get(x, y) != Stone.EMPTY) {
-            return MoveResult.error("Pole zajete");
-        }
-
-        //postaw kamien
-        set(x, y, color);
-
-        // Lista zbitych kamieni
-        java.util.List<Position> captures = new java.util.ArrayList<>();
-
-        //sprawdz czterch sasiadow
-        int[][] dirs = {{1,0}, {-1,0}, {0,1}, {0,-1}};
-
-        for (int[] d : dirs) {
-            int nx = x + d[0];
-            int ny = y + d[1];
-            if (!isOnBoard(nx, ny)) continue;
-
-            Stone neighbour = get(nx, ny);
-
-            if (neighbour != Stone.EMPTY && isSurrounded(nx, ny))
-            {
-                set(nx, ny, Stone.EMPTY);
-                captures.add(new Position(nx, ny));
-            }
-        }
-        return MoveResult.ok(captures, this.clone());
-    }
-
-    private boolean isSurrounded(int x, int y) {
-        int[][] dirs = { {1,0}, {-1,0}, {0,1}, {0,-1} };
-
-        for (int[] d : dirs) {
-            int nx = x + d[0];
-            int ny = y + d[1];
-
-            if (!isOnBoard(nx, ny)) continue;
-
-            // Jeśli sąsiad jest pusty - nie jest otoczony
-            if (get(nx, ny) == Stone.EMPTY) return false;
-        }
-
-        return true;
-    }*/
-
 
     @Override
     public Board clone() {
@@ -109,6 +58,26 @@ public final class Board implements Cloneable {
             throw new AssertionError("Clone not supported", e);
         }
     }
+
+    public static Board fromString(String text) {
+    String[] lines = text.split("\n");
+    int size = lines.length;
+    Board b = new Board(size);
+
+    for (int y = 0; y < size; y++) {
+        String row = lines[y].trim();
+        for (int x = 0; x < size; x++) {
+            char c = row.charAt(x);
+            switch (c) {
+                case 'B' -> b.set(x, y, Stone.BLACK);
+                case 'W' -> b.set(x, y, Stone.WHITE);
+                case '.' -> b.set(x, y, Stone.EMPTY);
+                default -> throw new IllegalArgumentException("Unknown board char: " + c);
+            }
+        }
+    }
+    return b;
+}
 
 
     @Override
