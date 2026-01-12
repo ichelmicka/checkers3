@@ -5,6 +5,17 @@ import com.example.model.*;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Implementacja reguł gry GO.
+ * 
+ * Sprawdza:
+ * - czy pole jest na planszy i jest puste,
+ * - bicie grup przeciwnika,
+ * - zakaz samobójstwa,
+ * - regułę ko.
+ * 
+ * Metoda {@link #applyMove} zwraca MoveResult z informacjami o poprawności ruchu.
+ */
 public class GoRules implements Rules {
 
     private final KoDetector koDetector = new KoDetector(); 

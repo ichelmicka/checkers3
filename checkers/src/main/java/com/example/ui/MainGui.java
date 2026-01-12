@@ -14,12 +14,19 @@ import java.util.*;
 import java.util.List;
 
 /**
- * GUI w Swing do gry (plansza, klikanie, wyświetlanie komunikatów).
+ * GUI w Swing do gry:
+ * - plansza rysowana Swingiem,
+ * - obsługa kliknięć i przycisków,
+ * - licznik terytorium.
  */
 public class MainGui {
+    /** Rozmiar planszy. */
     private final int boardSize = 9;
+    /** Model planszy przechowujący stan gry. */
     private Board board;
+    /** Reguły gry. */
     private final GoRules rules = new GoRules();
+    /** Aktualny gracz (czarny zaczyna). */
     private Stone currentPlayer = Stone.BLACK;
 
     private final int cellSize = 48; // piksele
@@ -29,14 +36,20 @@ public class MainGui {
     private BoardPanel boardPanel;
     private JLabel statusLabel;
 
+    /**
+     * Punkt wejścia uruchamiający GUI.
+     * @param args
+     */
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new MainGui().createAndShowGui());
     }
 
+    /** Konstruktor inicjalizujący nowa, pustą planszę. */
     public MainGui() {
         board = new Board(boardSize);
     }
 
+    /** Tworzy i wyświetla okno aplikacji. */
     private void createAndShowGui() {
         frame = new JFrame("Go / Checkers GUI");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -69,11 +82,13 @@ public class MainGui {
         frame.setVisible(true);
     }
 
+    /** Wykonuje akcję "pass". */
     private void pass() {
         currentPlayer = (currentPlayer == Stone.BLACK) ? Stone.WHITE : Stone.BLACK;
         statusLabel.setText(currentPlayer == Stone.BLACK ? "BLACK" : "WHITE");
     }
 
+    /** Resetuje planszę do stanu początkowego i ustawia gracza czarnego jako rozpoczynającego. */
     private void resetBoard() {
         board = new Board(boardSize);
         currentPlayer = Stone.BLACK;
@@ -81,6 +96,7 @@ public class MainGui {
         boardPanel.repaint();
     }
 
+    /** Pokazuje okienko z wynikiem. */
     private void showScore() {
         TerritoryScorerLocal.Score s = TerritoryScorerLocal.score(board);
         String msg = String.format("Black: stones=%d territory=%d total=%d\nWhite: stones=%d territory=%d total=%d",
@@ -89,7 +105,10 @@ public class MainGui {
         JOptionPane.showMessageDialog(frame, msg, "Score", JOptionPane.INFORMATION_MESSAGE);
     }
 
-    // panel rysujący planszę
+    /** 
+     * Panel rysujący planszę.
+     * Kliknięcie próbuje wykonać ruch przy użyciu reguł {@link GoRules}.
+     */
     private class BoardPanel extends JPanel {
         public BoardPanel() {
             addMouseListener(new MouseAdapter() {
@@ -154,10 +173,20 @@ public class MainGui {
         }
     }
 
-    // lokalny scorer
+    /**
+     * Lokalny scorer.
+     * Liczy kamienie oraz flood-fill pustych regionów.
+     * Region otoczony przez tylko jeden kolor przypisuje punkt temu kolorowi.
+     */
     private static final class TerritoryScorerLocal {
         private TerritoryScorerLocal() {}
 
+        /** 
+         * Oblicza wynik dla danej planszy.
+         * 
+         * @param board plansza do oceny
+         * @return struktura Score zawierająca liczbę kamieni, terytorium i wynik
+         */
         public static Score score(Board board) {
             int size = board.getSize();
             boolean[][] visited = new boolean[size][size];
@@ -217,6 +246,7 @@ public class MainGui {
             return new Score(blackStones, whiteStones, blackTerritory, whiteTerritory, blackScore, whiteScore);
         }
 
+        /** Wynik. */
         public static final class Score {
             public final int blackStones;
             public final int whiteStones;
@@ -225,6 +255,16 @@ public class MainGui {
             public final int blackScore;
             public final int whiteScore;
 
+            /**
+             * Konstruktor wyniku.
+             * 
+             * @param blackStones liczba czarnych kamieni na planszy
+             * @param whiteStones liczba białych kamieni na planszy
+             * @param blackTerritory liczba pól terytorialnych czarnego gracza
+             * @param whiteTerritory liczba pól terytorialnych białego gracza
+             * @param blackScore suma czarnych
+             * @param whiteScore syma białych
+             */
             public Score(int blackStones, int whiteStones, int blackTerritory, int whiteTerritory, int blackScore, int whiteScore) {
                 this.blackStones = blackStones;
                 this.whiteStones = whiteStones;
