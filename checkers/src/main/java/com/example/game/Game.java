@@ -50,6 +50,11 @@ public class Game {
         }
     }
 
+    public void setState(GameState s) {
+        this.state = s;
+    }
+
+
     public Stone getCurrentTurn() {
         return currentTurn;
     }

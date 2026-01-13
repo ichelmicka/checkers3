@@ -59,6 +59,11 @@ public class ClientHandler implements Runnable {
                 if (line.equalsIgnoreCase("PASS")) { 
                     server.handlePass(this); continue; 
                 } 
+                else if (line.equalsIgnoreCase("RESIGN"))
+                {
+                    server.handleResign(this); continue;
+                }
+
                 if (line.toUpperCase().startsWith("MOVE")) 
                 { 
                     server.handleRawMove(line, this); continue; 

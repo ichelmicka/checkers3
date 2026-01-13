@@ -28,6 +28,7 @@ public class MainGui {
     private Stone currentTurn = Stone.BLACK;
 
     private JButton passButton;
+    private JButton resgnButton;
 
     private JFrame frame;
     private BoardPanel boardPanel;
@@ -38,8 +39,8 @@ public class MainGui {
     private JLabel connectionLabel;
     private JLabel scoreLabel;
 
-    private final int cellSize = 48; // piksele
-    private final int margin = 20;
+    //private final int cellSize = 48; // piksele
+    //private final int margin = 20;
 
 
     private GoClient client;
@@ -72,7 +73,7 @@ public class MainGui {
 
         // PANEL PLANSZY ---
         boardPanel = new BoardPanel();
-        boardPanel.setPreferredSize(new Dimension(boardSize * cellSize + margin * 2, boardSize * cellSize + margin * 2));
+        boardPanel.setPreferredSize(new Dimension(600, 600));
         frame.add(boardPanel, BorderLayout.CENTER);
 
         // PANEL BOCZNY (kolor gracza, tura, itp.) ---
@@ -85,6 +86,10 @@ public class MainGui {
         JButton passButton = new JButton("PASS"); 
         passButton.addActionListener(e -> sendPass());
         bottom.add(passButton);
+
+        JButton rsgnButton = new JButton("RESIGN"); 
+        rsgnButton.addActionListener(e -> sendResign());
+        bottom.add(rsgnButton);
 
         scoreLabel = new JLabel("Score: ?");
         bottom.add(scoreLabel);
@@ -133,7 +138,9 @@ public class MainGui {
         else if (msg.startsWith("ERROR")) {
             SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, msg, "Error", JOptionPane.ERROR_MESSAGE));
         }
-
+        else if (msg.startsWith("WINNER")) {
+            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, msg));
+        }
         else if (msg.startsWith("BOARD")) {
             // następne linie to tekst planszy
             readBoardFromServer();
@@ -152,6 +159,10 @@ public class MainGui {
         client.send("PASS");
     }
 
+    private void sendResign() {
+        client.send("RESIGN");
+    }
+
 
     private void readBoardFromServer() {
         try {
@@ -167,8 +178,7 @@ public class MainGui {
     }
 
     private void onServerError(String msg) {
-        SwingUtilities.invokeLater(() ->
-                JOptionPane.showMessageDialog(frame, msg, "Connection error", JOptionPane.ERROR_MESSAGE));
+        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, msg, "Connection error", JOptionPane.ERROR_MESSAGE));
     }
 
     //panel rysujacy plansze

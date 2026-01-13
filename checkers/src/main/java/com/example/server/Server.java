@@ -141,6 +141,37 @@ public class Server implements GameListener {
         }
     }
 
+    public void handleResign(ClientHandler origin) {
+    Player p = origin.getPlayer();
+    if (p == null) {
+        origin.send("ERROR You are not registered");
+        return;
+    }
+
+    synchronized (game) {
+        if (game.getState() != GameState.RUNNING) {
+            origin.send("ERROR Game not running");
+            return;
+        }
+        if (p.getColor() != game.getCurrentTurn()) {
+            origin.send("ERROR Not your turn");
+            return;
+        }
+
+        //ogloszenie rezygnacji
+        broadcast("RESIGN " + p.getId());
+
+        //zmien ture i wyswietl zwyciezce
+        game.nextTurn();
+        origin.send("WINNER " + game.getCurrentTurn());
+
+        // koniec gry 
+        broadcast("END");
+        game.setState(GameState.FINISHED);
+    }
+}
+
+
 
     // GameListener implementation — wywoływane po poprawnym ruchu
     @Override
