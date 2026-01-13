@@ -3,6 +3,9 @@ package com.example.ui;
 import com.example.model.Board;
 import com.example.model.Stone;
 import com.example.rules.TerritoryScorer;
+import com.example.model.GameState;
+import com.example.model.Group;
+import com.example.model.Position;
 
 import javax.swing.*;
 import java.awt.*;
@@ -29,6 +32,10 @@ public class MainGui {
 
     /** Kolor przypisany temu klientowi (EMPTY = jeszcze nie przypisano). */
     private Stone myColor = Stone.EMPTY;
+
+    /** Stan gry otrzymywany ode serwera */
+    private GameState gameState = GameState.WAITING;
+
 
     /**
      * Aktualna tura (kolor, który ma grać).  
@@ -186,7 +193,16 @@ public class MainGui {
                 showScore();
                 boardPanel.repaint();
             });
-        }
+        } else if (msg.equals("WELCOME")) { 
+            gameState = GameState.RUNNING; 
+        } else if (msg.equals("SCORING")) { 
+            gameState = GameState.SCORING;
+            boardPanel.repaint(); 
+        } else if (msg.equals("RESUME")) { 
+            gameState = GameState.RUNNING; 
+        } else if (msg.equals("END")) { 
+            gameState = GameState.FINISHED; 
+        } 
     }
 
     /**
@@ -269,23 +285,36 @@ public class MainGui {
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
-                    if (myColor == Stone.EMPTY) {
-                        JOptionPane.showMessageDialog(frame, "Not yet assigned a color.", "Info", JOptionPane.INFORMATION_MESSAGE);
-                        return;
-                    }
-
-                    // jeśli nie twoja tura — blokuj ruch
-                    if (myColor != currentTurn) {
-                        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, "Not your turn.", "Wait", JOptionPane.INFORMATION_MESSAGE));
-                        return;
-                    }
-
-                    int cellSize = getWidth() / boardSize;
-                    int x = e.getX() / cellSize;
+                    int cellSize = getWidth() / boardSize; 
+                    int x = e.getX() / cellSize; 
                     int y = e.getY() / cellSize;
+                    if (x < 0 || x >= boardSize || y < 0 || y >= boardSize) return; 
+                    // 1. Jeśli gra skończona - nic nie rób 
+                    if (gameState == GameState.FINISHED) 
+                    { 
+                        JOptionPane.showMessageDialog(frame, "Game has ended."); return; 
+                    } 
+                    // 2. Jeśli SCORING - wysyłamy MARK  
+                    else if (gameState == GameState.SCORING) {   
+                        // lewy przycisk = DEAD, prawy = ALIVE 
+                        boolean dead = SwingUtilities.isLeftMouseButton(e); 
+                        String status = dead ? "DEAD" : "ALIVE"; 
+                        client.send("MARK " + x + " " + y + " " + status); return; 
+                    }
+                    // 3. Jesli RUNNING - normalne ruchy MOVE
+                    else if (gameState == GameState.RUNNING) {
+                        if (myColor == Stone.EMPTY) {
+                            JOptionPane.showMessageDialog(frame, "Not yet assigned a color.", "Info", JOptionPane.INFORMATION_MESSAGE);
+                            return;
+                        }
 
-                    if (x < 0 || x >= boardSize || y < 0 || y >= boardSize) return;
-                    if (client != null) client.send("MOVE " + x + " " + y);
+                        // jeśli nie twoja tura — blokuj ruch
+                        if (myColor != currentTurn) {
+                            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, "Not your turn.", "Wait", JOptionPane.INFORMATION_MESSAGE));
+                            return;
+                        }
+                        if (client != null) client.send("MOVE " + x + " " + y);
+                    }
                 }
             });
         }
@@ -294,6 +323,7 @@ public class MainGui {
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
 
+            Graphics2D g2 = (Graphics2D) g;
             int cell = getWidth() / boardSize;
 
             g.setColor(new Color(240, 200, 120));
@@ -325,6 +355,24 @@ public class MainGui {
                     }
                 }
             }
+
+            if (gameState == GameState.SCORING) {
+                for (int y = 0; y < boardSize; y++) { 
+                    for (int x = 0; x < boardSize; x++) 
+                    { 
+                        if (board.get(x, y) == Stone.EMPTY) continue; 
+                        // DEAD - czerwony, ALIVE - zielony
+                        Color overlay = board.isDead(x, y) ? new Color(255, 0, 0, 120) : new Color(0, 255, 0, 120); 
+                        g2.setColor(overlay); 
+                        int px = cell / 2 + x * cell - cell / 2; 
+                        int py = cell / 2 + y * cell - cell / 2; 
+                        g2.fillOval(px, py, cell, cell); 
+                        System.out.println("GUI dead[" + x + "," + y + "] = " + board.isDead(x, y));
+
+                    } 
+                }
+            }
+
         }
     }
 }

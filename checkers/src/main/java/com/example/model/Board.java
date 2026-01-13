@@ -6,10 +6,14 @@ import java.util.List;
 public final class Board implements Cloneable {
     private final int size;
     private Stone[][] cells;
+    private boolean[][] dead;
+
 
     public Board(int size) {
         this.size = size;
         this.cells = new Stone[size][size];
+        this.dead = new boolean[size][size];
+
         for (int i = 0; i<size; i++) {
             Arrays.fill(cells[i], Stone.EMPTY);
         }
@@ -40,11 +44,62 @@ public final class Board implements Cloneable {
         return list;
     }
 
+
     //zwraca grupe, w ktorej jest dany kamien
     public Group getGroupAt(int x, int y) {
         GroupFinder finder = new GroupFinder(this);
         return finder.findGroup(x, y);
     }
+
+    //zwraca wszystkie grupy
+    public List<Group> getAllGroups() {
+        List<Group> groups = new ArrayList<>();
+        boolean[][] visited = new boolean[size][size];
+
+        GroupFinder finder = new GroupFinder(this);
+
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                if (!visited[y][x] && cells[y][x] != Stone.EMPTY) {
+                    Group g = finder.findGroup(x, y);
+                    if (g != null) {
+                        groups.add(g);
+                        // oznacz wszystkie kamienie tej grupy jako odwiedzone
+                        for (Position p : g.stones) {
+                            visited[p.y][p.x] = true;
+                        }
+                    }
+                }
+            }
+        }
+        return groups;
+    }
+
+    //oznacza grupe jako zywa lub martwa
+    public boolean markGroup(int x, int y, boolean isDead) { 
+        Group g = getGroupAt(x, y); 
+        if (g == null) return false; 
+
+        for (Position p : g.stones) { 
+            dead[p.y][p.x] = isDead; 
+        } 
+        return true; 
+    }
+
+    public boolean isDead(int x, int y) {
+        return dead[y][x];
+    }
+
+    public void debugDead() {
+        System.out.println("DEAD MATRIX:");
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                System.out.print(dead[y][x] ? "X " : ". ");
+            }
+            System.out.println();
+        }
+    }
+
 
 
     @Override

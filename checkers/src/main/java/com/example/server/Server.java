@@ -134,6 +134,7 @@ public class Server implements GameListener {
             broadcast("PASS " + p.getId());
 
             if (lastMoveWasPass) {
+                game.setState(GameState.SCORING);
                 broadcast("SCORING");
                 broadcast("INFO Mark dead groups or request resume");
                 return;
@@ -227,7 +228,8 @@ public class Server implements GameListener {
         }
 
         // delegacja do Game
-        boolean ok = game.markGroup(x, y, status.equals("DEAD"));
+        boolean ok = game.getBoard().markGroup(x, y, status.equals("DEAD"));
+        game.getBoard().debugDead();
         if (!ok) {
             origin.send("ERROR Cannot mark group");
             return;

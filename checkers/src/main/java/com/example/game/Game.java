@@ -87,14 +87,6 @@ public class Game {
         return result;
     }
 
-    public boolean markGroup(int x, int y, boolean dead) { 
-        Group g = board.getGroupAt(x, y); 
-        if (g == null) return false; 
-        
-        g.setDead(dead); 
-        return true; 
-    }
-
     public String serializeState() {
         return board.toString();
     }
