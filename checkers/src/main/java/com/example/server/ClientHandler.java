@@ -63,6 +63,10 @@ public class ClientHandler implements Runnable {
                 {
                     server.handleResign(this); continue;
                 }
+                else if (line.equalsIgnoreCase("ACCEPT"))
+                {
+                    server.handleAccept(this); continue;
+                }
 
                 if (line.toUpperCase().startsWith("MARK")) 
                 { 
@@ -71,7 +75,8 @@ public class ClientHandler implements Runnable {
                 else if (line.toUpperCase().startsWith("MOVE")) 
                 { 
                     server.handleRawMove(line, this); continue; 
-                } 
+                }
+
                 send("ERROR Unknown command");
             }
         } catch (IOException e) {

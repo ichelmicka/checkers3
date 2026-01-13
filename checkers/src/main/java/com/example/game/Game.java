@@ -50,6 +50,37 @@ public class Game {
         }
     }
 
+    private Player getBlackPlayer() {
+        return players.values().stream().filter(p -> p.getColor() == Stone.BLACK).findFirst().orElse(null);
+    }
+
+    private Player getWhitePlayer() {
+        return players.values().stream().filter(p -> p.getColor() == Stone.WHITE).findFirst().orElse(null);
+    }
+
+    public int getBlackCaptures() {
+        Player p = getBlackPlayer();
+        return (p == null ? 0 : p.getPrisoners());
+    }
+
+    public int getWhiteCaptures() {
+        Player p = getWhitePlayer();
+        return (p == null ? 0 : p.getPrisoners());
+    }
+
+    public void addBlackCaptures(int n) {
+        Player p = getBlackPlayer();
+        if (p != null) p.addPrisoners(n);
+    }
+
+    public void addWhiteCaptures(int n) {
+        Player p = getWhitePlayer();
+        if (p != null) p.addPrisoners(n);
+    }
+
+
+
+
     public void setState(GameState s) {
         this.state = s;
     }

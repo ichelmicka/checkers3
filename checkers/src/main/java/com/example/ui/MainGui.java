@@ -45,6 +45,7 @@ public class MainGui {
 
     private JButton passButton;
     private JButton resgnButton;
+    private JButton acceptButton;
 
     private JFrame frame;
     private BoardPanel boardPanel;
@@ -135,6 +136,11 @@ public class MainGui {
         resgnButton.addActionListener(e -> sendResign());
         bottom.add(resgnButton);
 
+        JButton acceptButton = new JButton("ACCEPT");
+        acceptButton.addActionListener(e -> client.send("ACCEPT"));
+        bottom.add(acceptButton);
+
+
         frame.add(bottom, BorderLayout.SOUTH);
 
         // pokaż okno
@@ -211,6 +217,16 @@ public class MainGui {
             board.markGroup(x, y, dead);
             boardPanel.repaint();
         }
+        else if (msg.startsWith("ACCEPTED")) {
+            String who = msg.split(" ")[1];
+            System.out.println("Gracz " + who + " zaakceptował wynik.");
+        }
+        else if (msg.equals("END")) {
+            gameState = GameState.FINISHED;
+            JOptionPane.showMessageDialog(frame, "Gra zakończona - wynik policzony.");
+            boardPanel.repaint();
+        }
+
 
     }
 
