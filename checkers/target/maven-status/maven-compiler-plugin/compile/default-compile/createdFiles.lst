@@ -1,4 +1,3 @@
-com/example/ui/MainGui$TerritoryScorerLocal.class
 com/example/model/PlayerFactory.class
 com/example/rules/GoRules.class
 com/example/model/MoveType.class
@@ -15,7 +14,6 @@ com/example/game/Game.class
 com/example/rules/TerritoryScorer.class
 com/example/ui/GoClient.class
 com/example/ui/MainGui$BoardPanel.class
-com/example/ui/MainGui$TerritoryScorerLocal$Score.class
 com/example/rules/Region.class
 com/example/model/Player.class
 com/example/model/Position.class

@@ -32,6 +32,10 @@ public class Server implements GameListener {
     private final ConcurrentMap<String, ClientHandler> clients = new ConcurrentHashMap<>();
     private final ExecutorService exec = Executors.newCachedThreadPool();
 
+    private boolean blackAccepted = false;
+    private boolean whiteAccepted = false;
+
+
     private Server(int port, int boardSize) {
         this.port = port;
         this.game = new Game(boardSize);
@@ -130,8 +134,8 @@ public class Server implements GameListener {
             broadcast("PASS " + p.getId());
 
             if (lastMoveWasPass) {
-                broadcast("END");
-                broadcastBoard();
+                broadcast("SCORING");
+                broadcast("INFO Mark dead groups or request resume");
                 return;
             }
 
@@ -169,8 +173,72 @@ public class Server implements GameListener {
         broadcast("END");
         game.setState(GameState.FINISHED);
     }
-}
+    }
 
+    public void handleResume(ClientHandler origin) {
+        if (game.getState() != GameState.SCORING) {
+            origin.send("ERROR Not in scoring phase");
+            return;
+        }
+
+        Player p = origin.getPlayer();
+
+        // zmiana tury: przeciwnik zaczyna
+        game.nextTurn();
+
+        game.setState(GameState.RUNNING);
+
+        broadcast("RESUME");
+        broadcast("INFO Game resumed. Current turn: " + game.getCurrentTurn());
+    }
+
+    public void handleMark(String raw, ClientHandler origin) {
+        if (game.getState() != GameState.SCORING) {
+            origin.send("ERROR Not in scoring phase");
+            return;
+        }
+
+        Player p = origin.getPlayer();
+        if (p == null) {
+            origin.send("ERROR You are not registered");
+            return;
+        }
+
+        // MARK x y DEAD/ALIVE
+        String[] parts = raw.split("\\s+");
+        if (parts.length != 4) {
+            origin.send("ERROR Use: MARK <x> <y> <DEAD|ALIVE>");
+            return;
+        }
+
+        int x, y;
+        try {
+            x = Integer.parseInt(parts[1]);
+            y = Integer.parseInt(parts[2]);
+        } catch (NumberFormatException e) {
+            origin.send("ERROR Bad coordinates");
+            return;
+        }
+
+        String status = parts[3].toUpperCase();
+        if (!status.equals("DEAD") && !status.equals("ALIVE")) {
+            origin.send("ERROR Status must be DEAD or ALIVE");
+            return;
+        }
+
+        // delegacja do Game
+        boolean ok = game.markGroup(x, y, status.equals("DEAD"));
+        if (!ok) {
+            origin.send("ERROR Cannot mark group");
+            return;
+        }
+
+        // powiadom wszystkich
+        broadcast("MARK " + x + " " + y + " " + status);
+
+        // wyślij zaktualizowaną planszę
+        broadcastBoard();
+    }
 
 
     // GameListener implementation — wywoływane po poprawnym ruchu

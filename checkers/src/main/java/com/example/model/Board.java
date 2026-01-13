@@ -40,6 +40,12 @@ public final class Board implements Cloneable {
         return list;
     }
 
+    //zwraca grupe, w ktorej jest dany kamien
+    public Group getGroupAt(int x, int y) {
+        GroupFinder finder = new GroupFinder(this);
+        return finder.findGroup(x, y);
+    }
+
 
     @Override
     public Board clone() {
