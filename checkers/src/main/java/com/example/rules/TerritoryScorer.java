@@ -158,10 +158,7 @@ public final class TerritoryScorer {
             else if (owner == Stone.WHITE) whiteTerritory += r.size();
         }
 
-        int blackScore = blackStones + blackTerritory;
-        int whiteScore = whiteStones + whiteTerritory;
-
-        return new Score(blackStones, whiteStones, blackTerritory, whiteTerritory, blackScore, whiteScore);
+        return new Score(blackStones, whiteStones, blackTerritory, whiteTerritory);
     }
 
     /**
@@ -172,28 +169,13 @@ public final class TerritoryScorer {
         public final int whiteStones;
         public final int blackTerritory;
         public final int whiteTerritory;
-        public final int blackScore;
-        public final int whiteScore;
 
-        public Score(int blackStones, int whiteStones, int blackTerritory, int whiteTerritory, int blackScore, int whiteScore) {
+        public Score(int blackStones, int whiteStones, int blackTerritory, int whiteTerritory) {
             this.blackStones = blackStones;
             this.whiteStones = whiteStones;
             this.blackTerritory = blackTerritory;
             this.whiteTerritory = whiteTerritory;
-            this.blackScore = blackScore;
-            this.whiteScore = whiteScore;
         }
 
-        @Override
-        public String toString() {
-            return "Score{" +
-                    "blackStones=" + blackStones +
-                    ", whiteStones=" + whiteStones +
-                    ", blackTerritory=" + blackTerritory +
-                    ", whiteTerritory=" + whiteTerritory +
-                    ", blackScore=" + blackScore +
-                    ", whiteScore=" + whiteScore +
-                    '}';
-        }
     }
 }

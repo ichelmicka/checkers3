@@ -34,6 +34,11 @@ public class MainGui {
     /** Stan gry otrzymywany ode serwera */
     private GameState gameState = GameState.WAITING;
 
+    /** Liczba wiezniow bialego, otrzymywana od serwera */
+    private int whiteCaptures = 0;
+
+    /** Liczba wiezniow bialego, otrzymywana od serwera */
+    private int blackCaptures = 0;
 
     /**
      * Aktualna tura (kolor, który ma grać).  
@@ -224,11 +229,16 @@ public class MainGui {
         else if (msg.startsWith("ACCEPTED")) {
             String who = msg.split(" ")[1];
             System.out.println("Gracz " + who + " zaakceptował wynik.");
-        }
-        else if (msg.equals("END")) {
+        } else if (msg.equals("END")) {
             gameState = GameState.FINISHED;
             JOptionPane.showMessageDialog(frame, "Gra zakończona - wynik policzony.");
             boardPanel.repaint();
+        } else if (msg.startsWith("CAPTURED BY BLACK")) {
+            String[] p = msg.split(" ");
+            blackCaptures = Integer.parseInt(p[3]);
+        } else if (msg.startsWith("CAPTURED BY WHITE")) {
+            String[] p = msg.split(" ");
+            whiteCaptures = Integer.parseInt(p[3]);
         }
 
 
@@ -252,8 +262,8 @@ public class MainGui {
         TerritoryScorer.Score s = TerritoryScorer.score(board);
         StringBuilder sb = new StringBuilder();
         sb.append("Score:\n");
-        sb.append(String.format("Black: stones=%d territory=%d total=%d\n", s.blackStones, s.blackTerritory, s.blackScore));
-        sb.append(String.format("White: stones=%d territory=%d total=%d\n", s.whiteStones, s.whiteTerritory, s.whiteScore));
+        sb.append(String.format("Black: stones=%d territory=%d captures=%d\n", s.blackStones, s.blackTerritory, blackCaptures));
+        sb.append(String.format("White: stones=%d territory=%d captures=%d\n", s.whiteStones, s.whiteTerritory, whiteCaptures));
         SwingUtilities.invokeLater(() -> scoreArea.setText(sb.toString()));
     }
 

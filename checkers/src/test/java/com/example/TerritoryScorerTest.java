@@ -36,7 +36,6 @@ public class TerritoryScorerTest {
         // oczekujemy 16 czarnych kamieni (obwódka) i 9 pól terytorium (3x3 środek)
         assertEquals(16, s.blackStones, "Black stones count");
         assertEquals(9, s.blackTerritory, "Black territory (3x3 inside)");
-        assertEquals(16 + 9, s.blackScore, "Black total");
         // biali nic
         assertEquals(0, s.whiteStones);
         assertEquals(0, s.whiteTerritory);
@@ -64,7 +63,6 @@ public class TerritoryScorerTest {
 
         assertEquals(8, s.blackStones, "Black stones 3x3 border");
         assertEquals(1, s.blackTerritory, "Black territory center");
-        assertEquals(9, s.blackScore, "Black total");
     }
 
     /**

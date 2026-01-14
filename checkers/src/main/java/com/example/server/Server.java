@@ -305,6 +305,8 @@ public class Server implements GameListener {
         broadcast("MOVE " + move.playerId + " " + (move.pos.x) + " " + (move.pos.y));
         if (result.getCaptures() != null && !result.getCaptures().isEmpty()) {
             broadcast("CAPTURE " + result.getCaptures().size());
+            broadcast("CAPTURED BY WHITE " + game.getWhiteCaptures());
+            broadcast("CAPTURED BY BLACK " + game.getBlackCaptures());
         }
         broadcast("BOARD\n" + snapshotBoard.toString());
         broadcast("INFO Next turn: " + game.getCurrentTurn());
