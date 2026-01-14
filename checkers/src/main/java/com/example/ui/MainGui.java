@@ -4,8 +4,6 @@ import com.example.model.Board;
 import com.example.model.Stone;
 import com.example.rules.TerritoryScorer;
 import com.example.model.GameState;
-import com.example.model.Group;
-import com.example.model.Position;
 
 import javax.swing.*;
 import java.awt.*;
@@ -46,7 +44,6 @@ public class MainGui {
     private JButton passButton;
     private JButton resgnButton;
     private JButton acceptButton;
-    private JButton resumeButton;
 
     private JFrame frame;
     private BoardPanel boardPanel;
