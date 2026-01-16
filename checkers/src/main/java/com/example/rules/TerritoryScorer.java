@@ -23,6 +23,7 @@ public final class TerritoryScorer {
         int size = board.getSize();
 
         // 1) znajdź wszystkie puste regiony i nadaj im ID
+        // regionId[y][x] == -1 oznacza nieodwiedzony punkt pusty
         int[][] regionId = new int[size][size];
         for (int i = 0; i < size; i++) Arrays.fill(regionId[i], -1);
         Map<Integer, Region> regions = new HashMap<>();
@@ -30,9 +31,12 @@ public final class TerritoryScorer {
 
         for (int y = 0; y < size; y++) {
             for (int x = 0; x < size; x++) {
+                // pomija zajęte pola
                 if (board.get(x, y) != Stone.EMPTY) continue;
+                // pomija przypisany region
                 if (regionId[y][x] != -1) continue;
 
+                // flood-fill, aby cały region zebrać
                 Deque<Position> stack = new ArrayDeque<>();
                 stack.push(new Position(x, y));
                 regionId[y][x] = nextRegionId;
@@ -41,7 +45,9 @@ public final class TerritoryScorer {
                 while (!stack.isEmpty()) {
                     Position p = stack.pop();
                     reg.addPosition(p);
-
+                    
+                    // dla każdego sąsiada: jeśli pusty i nieodwiedzony -> dodaj do stosu,
+                    // jeśli zajęty -> zarejestruj kolor graniczny regionu
                     List<Position> neigh = board.getNeighbours(p.x, p.y);
                     for (Position n : neigh) {
                         Stone ns = board.get(n.x, n.y);
@@ -51,6 +57,7 @@ public final class TerritoryScorer {
                                 stack.push(new Position(n.x, n.y));
                             }
                         } else {
+                            // rejestrujemy, jakimi kolorami otoczony jest pusty region
                             reg.addBorderingColor(ns);
                         }
                     }
@@ -62,6 +69,7 @@ public final class TerritoryScorer {
         }
 
         // 2) znajdź wszystkie grupy kamieni i powiąż je z regionami pustek
+        // seen[y][x] - czy kamień został już przypisany do jakiejś grupy
         boolean[][] seen = new boolean[size][size];
         Map<Integer, StoneGroup> groups = new HashMap<>();
         int nextGroupId = 0;
@@ -69,6 +77,7 @@ public final class TerritoryScorer {
         for (int y = 0; y < size; y++) {
             for (int x = 0; x < size; x++) {
                 Stone s = board.get(x, y);
+                // ignorujemy puste pola i już przetworzone kamienie
                 if (s == Stone.EMPTY || seen[y][x]) continue;
 
                 Deque<Position> stack = new ArrayDeque<>();
@@ -77,12 +86,14 @@ public final class TerritoryScorer {
 
                 while (!stack.isEmpty()) {
                     Position p = stack.pop();
-                    if (seen[p.y][p.x]) continue;
-                    if (board.get(p.x, p.y) != s) continue;
+                    if (seen[p.y][p.x]) continue; // jeśli znów dodany
+                    if (board.get(p.x, p.y) != s) continue; // sprawdzanie koloru
 
                     seen[p.y][p.x] = true;
                     g.addStone(p);
 
+                    // przeglądamy sąsiadów: wolne punkty to "liberties" grupy,
+                    // a jeśli sąsiednie pole należy do regionu pustego, zapamiętujemy jego ID
                     List<Position> neigh = board.getNeighbours(p.x, p.y);
                     for (Position n : neigh) {
                         Stone ns = board.get(n.x, n.y);
@@ -91,6 +102,7 @@ public final class TerritoryScorer {
                             int rid = regionId[n.y][n.x];
                             if (rid != -1) g.addAdjacentRegionId(rid);
                         } else if (ns == s) {
+                            // kamień tego samego koloru -> należą do tej samej grupy
                             if (!seen[n.y][n.x]) stack.push(n);
                         }
                     }
@@ -107,11 +119,12 @@ public final class TerritoryScorer {
             if (r.borderingColors.size() != 1) neutralRegions.add(r.id);
         }
 
-        // 4) grupy w seki -> nowa reguła:
+        // 4) grupy w seki:
         // grupa jest w seki tylko wtedy, gdy ma co najmniej jedno adjacentRegionId
         // i wszystkie regiony z którymi się styka są neutralne.
         for (StoneGroup g : groups.values()) {
             if (g.adjacentRegionIds.isEmpty()) {
+                // grupa nie graniczy z żadnym pustym regionem -> nie traktujemy jej jako seki
                 g.isSeki = false;
                 continue;
             }
@@ -141,9 +154,12 @@ public final class TerritoryScorer {
         int whiteTerritory = 0;
 
         for (Region r : regions.values()) {
+            // jeśli region graniczy z więcej/0 kolorami, pomijamy
             if (r.borderingColors.size() != 1) continue;
             Stone owner = r.borderingColors.iterator().next();
 
+            // pomijamy regiony należące do koloru, jeśli przylega do nich grupa tego koloru
+            // będąca w seki (w seki nie przyznajemy terytorium)
             boolean borderingGroupInSeki = false;
             for (StoneGroup g : groups.values()) {
                 if (g.color != owner) continue;
