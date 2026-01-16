@@ -1,0 +1,22 @@
+-encoding
+'UTF-8'
+-protected
+-source
+'17'
+-sourcepath
+'/home/iwona/technologiap/lista5/iteracja2/checkers/src/main/java'
+-author
+-bottom
+'Copyright &#169; 2026. All rights reserved.'
+-charset
+'UTF-8'
+-d
+'/home/iwona/technologiap/lista5/iteracja2/checkers/target/site/apidocs'
+-docencoding
+'UTF-8'
+-doctitle
+'checkers 1.0-SNAPSHOT API'
+-use
+-version
+-windowtitle
+'checkers 1.0-SNAPSHOT API'
