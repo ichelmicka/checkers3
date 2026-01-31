@@ -14,6 +14,8 @@ public class BotHandler implements Connection {
     private Player player;
     private Stone myColor;
     private final Board board;
+    private boolean lastMoveFailed = false;
+    private boolean twoLastMovesFailed = false;
 
     public BotHandler(Server server, int boardSize) {
         this.server = server;
@@ -53,8 +55,8 @@ public class BotHandler implements Connection {
             // ignorujemy
         }
 
-        else if (msg.startsWith("BOARD")) {
-            //updateBoardFromServer();
+        else if (msg.startsWith("SCORING")) {
+            server.handleAccept(this);
         }
 
         else if (msg.startsWith("INFO Next")) {
@@ -63,12 +65,24 @@ public class BotHandler implements Connection {
             System.out.println(Stone.valueOf(msg.split(" ")[3]));
             if (turn == myColor) makeMove();
         }
+        else if (msg.startsWith("INFO Next")) {
+            syncBoard();
+            Stone turn = Stone.valueOf(msg.split(" ")[3]);
+            System.out.println(Stone.valueOf(msg.split(" ")[3]));
+            if (turn == myColor) makeMove();
+        }
+        else if (msg.startsWith("PASS")) {
+            syncBoard();
+        }
+        else if (msg.startsWith("ERROR")) {
+            syncBoard();
+            if (lastMoveFailed) {
+                twoLastMovesFailed = true;
+            }
+            lastMoveFailed = true;
+            makeMove();
+        }
     }
-
-    /*private void updateBoardFromServer() {
-        String[] rows = server.getBoardString().split("\n");
-        board.updateFromString(String.join("\n", rows));
-    }*/
 
     private void makeMove() {
         List<Position> empty = new ArrayList<>();
@@ -78,7 +92,12 @@ public class BotHandler implements Connection {
                 if (board.get(x, y) == Stone.EMPTY)
                     empty.add(new Position(x, y));
 
-        if (empty.isEmpty()) {
+        if (twoLastMovesFailed) {
+            server.handlePass(this);
+            lastMoveFailed = twoLastMovesFailed = false;
+            return;
+        }
+        else if (empty.isEmpty()) {
             server.handlePass(this);
             return;
         }
