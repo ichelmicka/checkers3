@@ -9,7 +9,7 @@ import java.net.Socket;
  * Obsługa jednego klienta: oczekuje pierwszej linii "JOIN <name>",
  * potem akceptuje tylko polecenia typu "MOVE x y".
  */
-public class ClientHandler implements Runnable {
+public class ClientHandler implements Runnable, Connection {
     private final Server server;
     private final Socket socket;
     private Player player;

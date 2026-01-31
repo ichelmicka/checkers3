@@ -31,11 +31,15 @@ public class Server implements GameListener {
     private final int port;
     private final Game game;
     private final PlayerFactory playerFactory = new PlayerFactory();
-    private final ConcurrentMap<String, ClientHandler> clients = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Connection> clients = new ConcurrentHashMap<>();
     private final ExecutorService exec = Executors.newCachedThreadPool();
 
     private boolean blackAccepted = false;
     private boolean whiteAccepted = false;
+
+    public Game getGame() {
+        return game;
+    }
 
 
     private Server(int port, int boardSize) {
@@ -51,6 +55,17 @@ public class Server implements GameListener {
                 Socket s = ss.accept();
                 ClientHandler h = new ClientHandler(this, s);
                 exec.submit(h);
+
+                while (clients.size() < 1) { 
+                    try { 
+                        Thread.sleep(10); 
+                    } catch (InterruptedException e) { 
+                        Thread.currentThread().interrupt(); // poprawne zachowanie break; 
+                    } 
+                }
+
+                BotHandler bot = new BotHandler(this, game.getBoardSize());
+                registerClient(bot, "Bot");
             }
         }
     }
@@ -58,7 +73,7 @@ public class Server implements GameListener {
     /**
      * Rejestracja klienta. Zwraca false jeśli gra pełna.
      */
-    public synchronized boolean registerClient(ClientHandler handler, String name) {
+    public synchronized boolean registerClient(Connection handler, String name) {
         if (clients.size() >= 2) {
             handler.send("ERROR game already has two players");
             return false;
@@ -84,7 +99,7 @@ public class Server implements GameListener {
     /**
      * Handle move string from a client ("MOVE x y").
      */
-    public void handleRawMove(String raw, ClientHandler origin) {
+    public void handleRawMove(String raw, Connection origin) {
         Player originPlayer = origin.getPlayer();
         if (originPlayer == null) {
             origin.send("ERROR You are not registered (no JOIN received)");
@@ -116,7 +131,7 @@ public class Server implements GameListener {
         }
     }
 
-    public void handlePass(ClientHandler origin) {
+    public void handlePass(Connection origin) {
     Player p = origin.getPlayer();
     if (p == null) {
         origin.send("ERROR You are not registered");
@@ -148,7 +163,7 @@ public class Server implements GameListener {
         }
     }
 
-    public void handleResign(ClientHandler origin) {
+    public void handleResign(Connection origin) {
     Player p = origin.getPlayer();
     if (p == null) {
         origin.send("ERROR You are not registered");
@@ -178,7 +193,7 @@ public class Server implements GameListener {
     }
     }
 
-    public void handleResume(ClientHandler origin) {
+    public void handleResume(Connection origin) {
         if (game.getState() != GameState.SCORING) {
             origin.send("ERROR Not in scoring phase");
             return;
@@ -204,7 +219,7 @@ public class Server implements GameListener {
         broadcast("INFO Next turn: " + nextTurn);
     }
 
-    public void handleMark(String raw, ClientHandler origin) {
+    public void handleMark(String raw, Connection origin) {
         if (game.getState() != GameState.SCORING) {
             origin.send("ERROR Not in scoring phase");
             return;
@@ -253,7 +268,7 @@ public class Server implements GameListener {
         broadcastBoard();
     }
 
-    public void handleAccept(ClientHandler origin) {
+    public void handleAccept(Connection origin) {
         if (game.getState() != GameState.SCORING) {
             origin.send("ERROR Not in scoring phase");
             return;

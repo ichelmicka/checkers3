@@ -1,1 +1,0 @@
-packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"com.example.game"},{"l":"com.example.model"},{"l":"com.example.rules"},{"l":"com.example.server"},{"l":"com.example.ui"}];updateSearchResults();

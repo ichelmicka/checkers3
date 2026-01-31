@@ -44,6 +44,10 @@ public class Game {
          return board; 
     }
 
+    public int getBoardSize() {
+        return board.getSize();
+    }
+
     public void start() {
         if (players.size() == 2) {
             state = GameState.RUNNING;

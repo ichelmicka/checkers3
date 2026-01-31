@@ -3,6 +3,7 @@ com/example/rules/GoRules.class
 com/example/model/MoveType.class
 com/example/rules/Rules.class
 com/example/game/GameListener.class
+com/example/server/Connection.class
 com/example/model/Board.class
 com/example/model/Stone.class
 com/example/model/GroupFinder.class
@@ -15,6 +16,7 @@ com/example/ui/GoClient.class
 com/example/ui/MainGui$BoardPanel.class
 com/example/rules/Region.class
 com/example/model/Player.class
+com/example/server/BotHandler.class
 com/example/model/Position.class
 com/example/server/Server.class
 com/example/rules/KoDetector.class
