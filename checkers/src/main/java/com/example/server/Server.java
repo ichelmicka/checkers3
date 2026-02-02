@@ -9,7 +9,6 @@ import com.example.model.MoveResult;
 import com.example.game.Game;
 import com.example.game.GameListener;
 import com.example.model.Stone;
-import com.example.rules.TerritoryScorer;
 
 
 import java.io.*;
