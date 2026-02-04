@@ -9,8 +9,6 @@ import com.example.model.MoveResult;
 import com.example.game.Game;
 import com.example.game.GameListener;
 import com.example.model.Stone;
-import com.example.persistence.GamePersistenceService;
-import com.example.persistence.GameEntity;
 
 import java.io.*;
 import java.net.*;
@@ -37,10 +35,6 @@ public class Server implements GameListener {
     private boolean blackAccepted = false;
     private boolean whiteAccepted = false;
 
-    // Persistence fields
-    private GamePersistenceService persistence; // wstrzykiwany z main po uruchomieniu Spring
-    private Long externalGameId = null; // id gry w bazie danych
-
     public Game getGame() {
         return game;
     }
@@ -50,13 +44,6 @@ public class Server implements GameListener {
         this.port = port;
         this.game = new Game(boardSize);
         this.game.addListener(this);
-    }
-
-    /**
-     * Setter dla persistence — zostanie ustawiony w main() po uruchomieniu Spring contextu.
-     */
-    public void setPersistence(GamePersistenceService persistence) {
-        this.persistence = persistence;
     }
 
     public void start() throws IOException {
@@ -103,28 +90,6 @@ public class Server implements GameListener {
             broadcast("START");
             broadcastBoard();
             broadcast("INFO Current turn: " + game.getCurrentTurn());
-
-            // Persist the new game in DB (once) if persistence is available
-            if (this.persistence != null && this.externalGameId == null) {
-                Player black = null;
-                Player white = null;
-                for (Connection conn : clients.values()) {
-                    Player pl = conn.getPlayer();
-                    if (pl != null) {
-                        if (pl.getColor() == Stone.BLACK) black = pl;
-                        else if (pl.getColor() == Stone.WHITE) white = pl;
-                    }
-                }
-                if (black != null && white != null) {
-                    try {
-                        GameEntity ge = persistence.createGame(black.getName(), white.getName());
-                        this.externalGameId = ge.getId();
-                        System.out.println("Created external game id = " + this.externalGameId);
-                    } catch (Exception ex) {
-                        System.err.println("Failed to persist game start: " + ex.getMessage());
-                    }
-                }
-            }
         }
         return true;
     }
@@ -224,16 +189,6 @@ public class Server implements GameListener {
             broadcast("END");
             game.setState(GameState.FINISHED);
 
-            // persist finish if possible
-            if (this.persistence != null && this.externalGameId != null) {
-                try {
-                    // result: the player who is current after nextTurn() is the winner
-                    String result = (game.getCurrentTurn() == Stone.BLACK) ? "BLACK_WIN" : "WHITE_WIN";
-                    persistence.finishGame(this.externalGameId, result);
-                } catch (Exception ex) {
-                    System.err.println("Failed to persist game finish (resign): " + ex.getMessage());
-                }
-            }
         }
     }
 
@@ -349,19 +304,6 @@ public class Server implements GameListener {
             broadcast("WINNER NONE, SCORE BLACK " + blackTotal + " WHITE " + whiteTotal);
         }
 
-        // persist result if possible
-        if (this.persistence != null && this.externalGameId != null) {
-            try {
-                String result;
-                if (blackTotal > whiteTotal) result = "BLACK_WIN";
-                else if (whiteTotal > blackTotal) result = "WHITE_WIN";
-                else result = "DRAW";
-                persistence.finishGame(this.externalGameId, result);
-            } catch (Exception ex) {
-                System.err.println("Failed to persist game finish: " + ex.getMessage());
-            }
-        }
-
         game.setState(GameState.FINISHED);
         broadcast("END");
     }
@@ -380,19 +322,6 @@ public class Server implements GameListener {
         broadcast("BOARD\n" + snapshotBoard.toString());
         broadcast("INFO Next turn: " + game.getCurrentTurn());
 
-        // Persist the move (Go's move = place stone at pos)
-        if (this.persistence != null && this.externalGameId != null) {
-            try {
-                int toRow = move.pos.x;
-                int toCol = move.pos.y;
-                boolean capture = result.getCaptures() != null && !result.getCaptures().isEmpty();
-                String extra = "{\"playerId\":\"" + move.playerId + "\",\"captures\":" + (result.getCaptures() == null ? 0 : result.getCaptures().size()) + "}";
-                // For Go we'll record fromRow/fromCol as -1 to indicate placement
-                persistence.recordMove(this.externalGameId, -1, -1, toRow, toCol, capture, extra);
-            } catch (Exception ex) {
-                System.err.println("Failed to persist move: " + ex.getMessage());
-            }
-        }
     }
 
     public void broadcast(String msg) {
@@ -409,22 +338,7 @@ public class Server implements GameListener {
         if (args.length >= 1) port = Integer.parseInt(args[0]);
         if (args.length >= 2) size = Integer.parseInt(args[1]);
 
-        // Start Spring context so we can use GamePersistenceService
-        org.springframework.context.ApplicationContext ctx =
-                org.springframework.boot.SpringApplication.run(com.example.Application.class, args);
-
-        // obtain persistence bean (if available)
-        GamePersistenceService persistence = null;
-        try {
-            persistence = ctx.getBean(GamePersistenceService.class);
-        } catch (Exception ex) {
-            System.err.println("GamePersistenceService bean not available: " + ex.getMessage());
-        }
-
         Server s = Server.getInstance(port, size);
-        if (persistence != null) {
-            s.setPersistence(persistence);
-        }
         s.start();
     }
 }
