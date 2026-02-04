@@ -11,6 +11,16 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.util.ArrayList;
+import java.util.List;
+
+
 /**
  * GUI klienta gry Go (Swing).
  * Oczekiwane komunikaty serwera (obsługiwane):
@@ -60,6 +70,9 @@ public class MainGui {
     private JTextArea scoreArea;
 
     private GoClient client;
+
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+
 
     /**
      * Punkt wejścia uruchamiający GUI w wątku event-dispatch.
@@ -146,6 +159,19 @@ public class MainGui {
         acceptButton = new JButton("RESUME");
         acceptButton.addActionListener(e -> client.send("RESUME"));
         bottom.add(acceptButton);
+
+        JButton replayButton = new JButton("REPLAY DB");
+        replayButton.addActionListener(e -> {
+            String idStr = JOptionPane.showInputDialog(frame, "Enter game id to replay:", "Replay", JOptionPane.QUESTION_MESSAGE);
+            if (idStr == null || idStr.isBlank()) return;
+            try {
+                long gid = Long.parseLong(idStr.trim());
+                startReplayFromDatabase(gid);
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(frame, "Bad id", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        bottom.add(replayButton);
 
 
         frame.add(bottom, BorderLayout.SOUTH);
@@ -312,6 +338,139 @@ public class MainGui {
     private void onServerError(String msg) {
         SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, msg, "Connection error", JOptionPane.ERROR_MESSAGE));
     }
+
+    /**
+     * Pobiera ruchy z persistence microservice i odtwarza je na lokalnej planszy.
+     */
+    private void startReplayFromDatabase(long gameId) {
+        new Thread(() -> {
+            try {
+                String url = "http://localhost:8080/api/games/" + gameId + "/moves/raw";
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .GET()
+                        .build();
+                HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+
+                System.out.println("REPLAY HTTP STATUS: " + resp.statusCode());
+                System.out.println("REPLAY HTTP BODY:\n" + resp.body());
+
+                if (resp.statusCode() != 200) {
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame,
+                            "Game not found or server error: " + resp.statusCode() + "\nBody:\n" + resp.body(),
+                            "Error", JOptionPane.ERROR_MESSAGE));
+                    return;
+                }
+
+                String body = resp.body();
+                if (body == null || body.trim().isEmpty() || body.trim().equalsIgnoreCase("null")) {
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame,
+                            "Replay returned empty body (null). Body:\n" + body,
+                            "Replay error", JOptionPane.ERROR_MESSAGE));
+                    return;
+                }
+
+                List<ReplayMove> moves = new ArrayList<>();
+                String[] lines = body.split("\\r?\\n");
+                for (String line : lines) {
+                    line = line.trim();
+                    if (line.isEmpty()) continue;
+                    String[] parts = line.split("\\s+");
+                    if (parts.length < 3) {
+                        System.err.println("Skipping bad line in replay: '" + line + "'");
+                        continue;
+                    }
+                    String colorStr = parts[0];
+                    String p1 = parts[1];
+                    String p2 = parts[2];
+                    if ("null".equalsIgnoreCase(p1) || "null".equalsIgnoreCase(p2)) {
+                        System.err.println("Skipping line with null coordinates: '" + line + "'");
+                        continue;
+                    }
+                    int x = Integer.parseInt(p1);
+                    int y = Integer.parseInt(p2);
+                    String colorSan = (colorStr == null || colorStr.equalsIgnoreCase("null")) ? "BLACK" : colorStr;
+                    moves.add(new ReplayMove(colorSan.toUpperCase(), x, y));
+                }
+
+                if (moves.isEmpty()) {
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, "No moves found for that game."));
+                    return;
+                }
+
+                SwingUtilities.invokeLater(() -> applyMovesWithTimer(moves));
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, "Replay failed: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE));
+            }
+        }).start();
+    }
+
+
+    /**
+     * Aplikuje listę ruchów z lekką animacją.
+     */
+    private void applyMovesWithTimer(List<ReplayMove> moves) {
+        if (moves == null || moves.isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "No moves to replay.");
+            return;
+        }
+
+        // reset planszy
+        board = new Board(boardSize);
+        boardPanel.repaint();
+
+        final int[] idx = {0};
+        int delayMs = 500; // przerwa między ruchami
+        Timer timer = new Timer(delayMs, null);
+        timer.addActionListener(new ActionListener() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            if (idx[0] >= moves.size()) {
+                timer.stop();
+                JOptionPane.showMessageDialog(frame, "Replay finished.");
+                return;
+            }
+            ReplayMove m = moves.get(idx[0]++);
+            Stone stone;
+            try {
+                if (m.color == null) {
+                    System.err.println("ReplayMove color is null for move " + (idx[0]-1));
+                }
+                try {
+                    stone = Stone.valueOf(m.color);
+                } catch (Exception ex) {
+                    // fallback: parity ruchu
+                    stone = ((idx[0]) % 2 == 1) ? Stone.BLACK : Stone.WHITE;
+                }
+
+                // —— TU WAŻNE: ustaw kamień bez reguł (raw)
+                try {
+                    board.set(m.x, m.y, stone); // zobacz dalej: implementacja set() niżej
+                } catch (NoSuchMethodError | AbstractMethodError nsme) {
+                    // jeśli twoje Board ma inną nazwę metody, zastąp odpowiednio
+                    System.err.println("Board.set(...) method not found — implement Board.set(x,y,stone) for replay.");
+                }
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+            boardPanel.repaint();
+        }
+    });
+
+        timer.start();
+    }
+
+
+    /** Pomocnicza klasa trzymająca ruch replaya. */
+    private static class ReplayMove {
+        final String color;
+        final int x, y;
+        ReplayMove(String color, int x, int y) { this.color = color; this.x = x; this.y = y; }
+    }
+
 
     /**
      * Panel rysujący planszę i obsługujący kliknięcia myszy.

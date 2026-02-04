@@ -9,6 +9,7 @@ import com.example.model.MoveResult;
 import com.example.game.Game;
 import com.example.game.GameListener;
 import com.example.model.Stone;
+import com.example.integration.GamePersistenceClient; // klient HTTP do persistence
 
 import java.io.*;
 import java.net.*;
@@ -16,6 +17,7 @@ import java.util.concurrent.*;
 
 /**
  * Singleton server — obsługuje do 2 graczy, deleguje logikę do Game.
+ * Rozszerzone o opcjonalne wywołania do GamePersistenceClient (HTTP) do zapisu gier/ruchów.
  */
 public class Server implements GameListener {
     private static Server instance;
@@ -35,10 +37,21 @@ public class Server implements GameListener {
     private boolean blackAccepted = false;
     private boolean whiteAccepted = false;
 
+    // Persistence integration
+    private GamePersistenceClient persistenceClient = null;
+    private Long externalGameId = null;
+
     public Game getGame() {
         return game;
     }
 
+    public void setPersistenceClient(GamePersistenceClient client) {
+        this.persistenceClient = client;
+    }
+
+    public Long getExternalGameId() {
+        return externalGameId;
+    }
 
     private Server(int port, int boardSize) {
         this.port = port;
@@ -90,6 +103,42 @@ public class Server implements GameListener {
             broadcast("START");
             broadcastBoard();
             broadcast("INFO Current turn: " + game.getCurrentTurn());
+
+            // Persist the new game in DB (only once) if persistence client available
+            if (this.persistenceClient != null && this.externalGameId == null) {
+                try {
+                    // determine player names for black and white
+                    String blackName = null;
+                    String whiteName = null;
+                    for (Connection c : clients.values()) {
+                        Player pl = c.getPlayer();
+                        if (pl == null) continue;
+                        if (pl.getColor() == Stone.BLACK) blackName = pl.getName();
+                        else if (pl.getColor() == Stone.WHITE) whiteName = pl.getName();
+                    }
+                    // fallback: if colors not assigned by factory for some reason, pick any two names
+                    if (blackName == null || whiteName == null) {
+                        for (Connection c : clients.values()) {
+                            Player pl = c.getPlayer();
+                            if (pl == null) continue;
+                            if (blackName == null) blackName = pl.getName();
+                            else if (whiteName == null) whiteName = pl.getName();
+                        }
+                    }
+
+                    GamePersistenceClient gpc = this.persistenceClient;
+                    Long id = gpc.createGame(blackName == null ? "Black" : blackName,
+                                             whiteName == null ? "White" : whiteName);
+                    if (id != null) {
+                        this.externalGameId = id;
+                        System.out.println("Created external game id = " + this.externalGameId);
+                    } else {
+                        System.err.println("Persistence returned null id when creating game");
+                    }
+                } catch (Exception ex) {
+                    System.err.println("Failed to persist game start: " + ex.getMessage());
+                }
+            }
         }
         return true;
     }
@@ -185,10 +234,19 @@ public class Server implements GameListener {
             game.nextTurn();
             origin.send("WINNER " + game.getCurrentTurn());
 
-            // koniec gry
+            // koniec gry 
             broadcast("END");
             game.setState(GameState.FINISHED);
 
+            // persist finish if available
+            if (this.persistenceClient != null && this.externalGameId != null) {
+                try {
+                    String result = (game.getCurrentTurn() == Stone.BLACK) ? "BLACK_WIN" : "WHITE_WIN";
+                    this.persistenceClient.finishGame(this.externalGameId, result);
+                } catch (Exception ex) {
+                    System.err.println("Failed to persist finish (resign): " + ex.getMessage());
+                }
+            }
         }
     }
 
@@ -294,7 +352,7 @@ public class Server implements GameListener {
         int whiteTotal = game.getWhiteScore();
 
         //pokaz wynik
-        broadcast("SCORE BLACK " + blackTotal + " WHITE " + whiteTotal);
+        broadcast("SCORE BLACK " + blackTotal + " WHITE " + whiteTotal); 
 
         if (blackTotal > whiteTotal) {
             broadcast("WINNER BLACK, SCORE BLACK " + blackTotal + " WHITE " + whiteTotal);
@@ -304,9 +362,25 @@ public class Server implements GameListener {
             broadcast("WINNER NONE, SCORE BLACK " + blackTotal + " WHITE " + whiteTotal);
         }
 
+        // persist result if possible
+        if (this.persistenceClient != null && this.externalGameId != null) {
+            try {
+                String result;
+                if (blackTotal > whiteTotal) result = "BLACK_WIN";
+                else if (whiteTotal > blackTotal) result = "WHITE_WIN";
+                else result = "DRAW";
+                persistenceClient.finishGame(this.externalGameId, result);
+            } catch (Exception ex) {
+                System.err.println("Failed to persist game finish: " + ex.getMessage());
+            }
+        }
+
         game.setState(GameState.FINISHED);
         broadcast("END");
     }
+
+
+
 
     // GameListener implementation — wywoływane po poprawnym ruchu
     @Override
@@ -322,6 +396,18 @@ public class Server implements GameListener {
         broadcast("BOARD\n" + snapshotBoard.toString());
         broadcast("INFO Next turn: " + game.getCurrentTurn());
 
+        // Persist the move (if persistence client available)
+        if (this.persistenceClient != null && this.externalGameId != null) {
+            try {
+                int toRow = move.pos.x;
+                int toCol = move.pos.y;
+                boolean capture = result.getCaptures() != null && !result.getCaptures().isEmpty();
+                String extra = "{\"playerId\":\"" + move.playerId + "\"}";
+                persistenceClient.persistMove(this.externalGameId, -1, -1, toRow, toCol, capture, extra);
+            } catch (Exception ex) {
+                System.err.println("Failed to persist move: " + ex.getMessage());
+            }
+        }
     }
 
     public void broadcast(String msg) {
@@ -339,6 +425,16 @@ public class Server implements GameListener {
         if (args.length >= 2) size = Integer.parseInt(args[1]);
 
         Server s = Server.getInstance(port, size);
+
+        // create persistence client pointing to http://localhost:8080
+        try {
+            GamePersistenceClient client = new GamePersistenceClient("http://localhost:8080");
+            s.setPersistenceClient(client);
+            System.out.println("Persistence client created");
+        } catch (Exception ex) {
+            System.err.println("Persistence client not available: " + ex.getMessage());
+        }
+
         s.start();
     }
 }
